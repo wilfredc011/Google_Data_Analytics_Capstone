@@ -1,0 +1,398 @@
+---
+title: "Google Data Analytics Capstone Project"
+subtitle: "Cyclistic Case Study"
+author: "Wilfred Chen"
+date: "2022-11-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## **Scenario**
+
+You are a junior data analyst working in the marketing analyst team at Cyclistic, a bike-share company in Chicago. The director of marketing believes the company’s future success depends on maximizing the number of annual memberships. Therefore, your team wants to understand how casual riders and annual members use Cyclistic bikes differently. From these insights,your team will design a new marketing strategy to convert casual riders into annual members. But first, Cyclistic executives must approve your recommendations, so they must be backed up with compelling data insights and professional data visualizations.
+
+## **Characters and teams**
+
+* **Cyclistic**: A bike-share program that features more than 5,800 bicycles and 600 docking stations. Cyclistic sets itself apart by also offering reclining bikes, hand tricycles, and cargo bikes, making bike-share more inclusive to people with disabilities and riders who can’t use a standard two-wheeled bike. The majority of riders opt for traditional bikes; about 8% of riders use the assistive options. Cyclistic users are more likely to ride for leisure, but about 30% use them to commute to work each day.
+* **Lily Moreno**: The director of marketing and your manager. Moreno is responsible for the development of campaigns and initiatives to promote the bike-share program. These may include email, social media, and other channels.
+* **Cyclistic marketing analytics team**: A team of data analysts who are responsible for collecting, analyzing, and reporting data that helps guide Cyclistic marketing strategy. You joined this team six months ago and have been busy learning about Cyclistic’s mission and business goals — as well as how you, as a junior data analyst, can help Cyclistic achieve them.
+* **Cyclistic executive team**: The notoriously detail-oriented executive team will decide whether to approve the recommended marketing program.
+
+## **Ask**
+
+### Guiding Questions
+
+* What is the problem you are trying to solve?
+  + The main objective is to figure out a method that would best help to convert casual riders into annual members.
+  
+* How can your insights drive business decisions?
+  + My insights would help the marketing team design effective marketing strategies to convert casual riders into annual members.
+
+## **Prepare**
+
+### Guiding Questions
+
+* Where is your data located?
+  + The data is located [here](https://divvy-tripdata.s3.amazonaws.com/index.html).
+  
+* How is the data organized?
+  + The data is organized by months and is found in its own csv file.
+  
+* Are there issues with bias or credibility in this data? Does your data ROCCC?
+  + There are no issues with bias or credibility in this data because the dataset consists of Cyclistic's clients. The data is reliable, original, comprehensive, current, and cited. 
+  
+* How are you addressing licensing, privacy, security, and accessibility?
+  + The dataset is made available by Motivate International Inc. under the Data License Agreement by Bikeshare.
+  
+* How did you verify the data's integrity?
+  + I checked the structure of the datasets and verified that the columns were consistent with the correct data types.
+  
+* How does it help you answer your question?
+  + The dataset has insights on the clients and their riding information.
+  
+* Are there any problems with the data?
+  + Some additional data related to the riders would be useful.
+
+## **Process**
+
+I will be using R to prepare, verify, and clean the data for analysis. First, I load several libraries to help with the process.
+
+```{r loading libraries}
+library(tidyverse)  # easily install and load the tidyverse
+library(lubridate)  # make dealing with dates a little easier
+library(janitor)    # simple tools for examining and cleaning dirty data
+library(ggplot2)    # create data visualizations
+library(knitr)      # engine for dynamic report generation
+library(data.table) # extension of data.frame
+library(readr)      # read rectangular text data more easily
+```
+
+```{r import csv files}
+tripdata_01 <- read.csv("202110-divvy-tripdata.csv")
+tripdata_02 <- read.csv("202111-divvy-tripdata.csv")
+tripdata_03 <- read.csv("202112-divvy-tripdata.csv")
+tripdata_04 <- read.csv("202201-divvy-tripdata.csv")
+tripdata_05 <- read.csv("202202-divvy-tripdata.csv")
+tripdata_06 <- read.csv("202203-divvy-tripdata.csv")
+tripdata_07 <- read.csv("202204-divvy-tripdata.csv")
+tripdata_08 <- read.csv("202205-divvy-tripdata.csv")
+tripdata_09 <- read.csv("202206-divvy-tripdata.csv")
+tripdata_10 <- read.csv("202207-divvy-tripdata.csv")
+tripdata_11 <- read.csv("202208-divvy-tripdata.csv")
+tripdata_12 <- read.csv("202209-divvy-publictripdata.csv")
+```
+
+```{r examine column names}
+colnames(tripdata_01)
+colnames(tripdata_02)
+colnames(tripdata_03)
+colnames(tripdata_04)
+colnames(tripdata_05)
+colnames(tripdata_06)
+colnames(tripdata_07)
+colnames(tripdata_08)
+colnames(tripdata_09)
+colnames(tripdata_10)
+colnames(tripdata_11)
+colnames(tripdata_12)
+```
+
+```{r concatenate all csv files into a single data frame}
+past_12_months_tripdata <- 
+  bind_rows(tripdata_01, tripdata_02, tripdata_03, tripdata_04, tripdata_05, tripdata_06, tripdata_07, tripdata_08, tripdata_09, tripdata_10, tripdata_11, tripdata_12)
+```
+
+```{r save combined data frame into a csv file}
+write.csv(past_12_months_tripdata, file="Cyclistic_tripdata.csv")
+```
+
+```{r import saved csv file}
+all_12_tripdata <- read.csv("Cyclistic_tripdata.csv")
+```
+
+```{r preview first 6 rows of the data frame}
+head(all_12_tripdata)
+```
+
+```{r remove duplicate rows}
+no_duplicate_tripdata <-
+  all_12_tripdata[!duplicated(all_12_tripdata$ride_id), ]
+print(paste("Removed", nrow(all_12_tripdata) - nrow(no_duplicate_tripdata), "duplicated rows"))
+```
+
+```{r remove rows with NULL values}
+null_removed_tripdata <-
+  na.omit(no_duplicate_tripdata)
+print(paste("Removed", nrow(no_duplicate_tripdata) - nrow(null_removed_tripdata), "NULL rows"))
+```
+
+```{r create a new column for the ride length in minutes}
+cleaned_tripdata <-
+  null_removed_tripdata %>%
+  mutate(ride_length = as.numeric(difftime(null_removed_tripdata$ended_at, null_removed_tripdata$started_at, units = "mins")))
+```
+
+```{r create a new column for the date, day of the week, month, year, and starting hour that each ride started}
+cleaned_tripdata$day_of_week <- 
+  format(as.Date(cleaned_tripdata$started_at), "%a")
+cleaned_tripdata$month <- 
+  format(as.Date(cleaned_tripdata$started_at), "%b")
+cleaned_tripdata$year <-
+  format(as.Date(cleaned_tripdata$started_at), "%Y")
+cleaned_tripdata$start_hourr <-
+  format(as.POSIXct(cleaned_tripdata$started_at, format = "%Y-%m-%d %H:%M:%S"), "%H")
+```
+
+```{r preview the structure of the new columns}
+head(cleaned_tripdata)
+```
+
+```{r convert and check numeric values}
+cleaned_tripdata$start_hour <-
+  as.numeric(cleaned_tripdata$start_hour)
+is.numeric(cleaned_tripdata$start_hour)
+```
+
+```{r remove negative values from ride length}
+cleaned_tripdata_1 <-
+  cleaned_tripdata[!(cleaned_tripdata$ride_length < 0), ]
+print(paste("Removed", nrow(cleaned_tripdata) - nrow(cleaned_tripdata_1), "rows"))
+```
+
+### Guiding Questions
+
+* What tools are you choosing and why?
+  + I will be using R because it is efficient for analyzing large datasets.
+  
+* Have you ensured your data's integrity?
+  + Yes, I have ensured that all the columns remain consistent.
+  
+* What steps have you taken to ensure that your data is clean?
+  + I have ensured the data is clean by removing duplicate rows and rows that had NULL values.
+  
+* How can you verify that your data is clean and ready to analyze?
+  + The data can be verified through this R Notebook.
+  
+* Have you documented your cleaning process so you can review and share those results?
+  + I have documented my cleaning process within an R Notebook.
+
+## **Analyze**
+
+```{r renaming data frame}
+tripdata <-
+  cleaned_tripdata_1
+```
+
+```{r preview a summary of the data frame}
+summary(tripdata)
+```
+
+```{r divide ride_length into 20 groups of equal sizes to find where the outliers exist}
+ventiles_tripdata <-
+  quantile(tripdata$ride_length, seq(0, 1, 1/20))
+ventiles_tripdata
+```
+
+```{r remove data less than 5th percentile and greater than 95th percentile}
+outlier_removed_tripdata <-
+  tripdata %>%
+  filter(ride_length > quantile(tripdata$ride_length, 0.05)) %>%
+  filter(ride_length < quantile(tripdata$ride_length, 0.95))
+print(paste("Removed", nrow(tripdata) - nrow(outlier_removed_tripdata), "outliers"))
+```
+
+```{r plot_1: show the number of casuals and members}
+outlier_removed_tripdata %>%
+  ggplot(mapping = aes(x=member_casual, fill=member_casual)) +
+  geom_bar() +
+  labs(title="Number of casuals vs members", x="casuals vs members", y="Number of people") +
+  geom_text(aes(label=..count..), stat="count", vjust=0)
+```
+
+Plot 1 tells us the amount of members and casuals there are.
+
+```{r plot_2: show the number of casuals and members that start at each hour of the day}
+outlier_removed_tripdata %>%
+  ggplot(mapping = aes(x=start_hour, fill=member_casual)) +
+  geom_bar(position="dodge") +
+  labs(title="Number of casuals vs members at the start of their ride", x="Hours", y="Number of people")
+```
+
+Plot 2 shows us that the peak number of members and casuals start their ride at 5:00pm.
+
+```{r summarize the amount of members and casuals that are in each hour}
+outlier_removed_tripdata %>%
+  group_by(start_hour) %>%
+  summarize("total" = sum(member_casual == "member" | member_casual == "casual"), 
+            "members" = sum(member_casual == "member"),
+            "casuals" = sum(member_casual == "casual"),
+            "difference_in_people" = members - casuals)
+```
+
+```{r used to categorize and store the day of the week in chronological order}
+outlier_removed_tripdata$day_of_week <-
+  factor(outlier_removed_tripdata$day_of_week, c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+```
+
+```{r plot_3: show the number of casuals and members that ride during each day of the week}
+outlier_removed_tripdata %>%
+  ggplot(mapping = aes(x=day_of_week, fill=member_casual)) +
+  geom_bar() +
+  labs(title="Number of casuals vs members during each day of the week", x="Day of the week", y="Number of people") +
+  facet_wrap(~member_casual)
+```
+
+Plot 3 indicates that members favor riding on Tuesdays to Thursdays and casuals favor riding on Saturdays. The amount of casuals and members riding on Saturdays are very close.
+
+```{r summarize the amount of members and casuals that are in each day of the week}
+outlier_removed_tripdata %>%
+  group_by(day_of_week) %>%
+  summarize("total" = sum(member_casual == "member" | member_casual == "casual"), 
+            "members" = sum(member_casual == "member"),
+            "casuals" = sum(member_casual == "casual"),
+            "difference_in_people" = members - casuals)
+```
+
+```{r plot_4: show the number of casuals vs members at the start of their ride for each day of the week}
+outlier_removed_tripdata %>%
+  ggplot(mapping = aes(x=start_hour, fill=member_casual)) +
+  geom_bar() +
+  labs(title="Number of casuals vs members at the start of their ride for each day of the week", x="Hour of the Day", y="Number of people") +
+  facet_wrap(~day_of_week)
+```
+
+Plot 4 shows us that on weekdays, most casuals and members start their ride around 5:00pm. On weekends, there is more consistency from 10:00am to 6:00pm.
+
+```{r used to categorize and store the months in chronological order}
+outlier_removed_tripdata$month <-
+  factor(outlier_removed_tripdata$month, c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"))
+```
+
+```{r plot_5: show the number of casuals and members that ride during each month}
+outlier_removed_tripdata %>%
+  ggplot(mapping = aes(x=month, fill=member_casual)) +
+  geom_bar() +
+  labs(title="Number of casuals vs members during each month", x="Months", y="Number of people") +
+  facet_wrap(~member_casual) +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+Plot 5 shows us that both members and casuals heavily favor riding bikes in the middle of the year as opposed to the beginning or end. The amount of members peak in August and the amount of casuals peak in July.
+
+```{r summarize the amount of members and casuals that are in each month}
+outlier_removed_tripdata %>%
+  group_by(month) %>%
+  summarize("total" = sum(member_casual == "member" | member_casual == "casual"), 
+            "members" = sum(member_casual == "member"),
+            "casuals" = sum(member_casual == "casual"),
+            "difference_in_people" = members - casuals)
+```
+
+```{r plot_6: see which bike is most popular between casuals and members}
+outlier_removed_tripdata %>%
+  ggplot(mapping = aes(x=rideable_type, fill=member_casual)) +
+  geom_bar(position="dodge") +
+  labs(title="Number of each bike used by casuals vs members", x="Type of bike", y="Number of bikes") +
+  theme(axis.text.x = element_text(angle = 45))
+```
+
+Plot 6 reveals that the classic bike is most popular among the members and casuals. The docked bike is the least popular and only used by a few casuals. 
+
+```{r plot_7: show the min, Q1, mean, Q3, and max ride lengths among members and casuals}
+outlier_removed_tripdata %>%
+  ggplot(mapping = aes(x=member_casual, y=ride_length, fill=member_casual)) +
+  geom_boxplot() +
+  labs(title="Summary of ride length for casuals vs members", x="casuals vs members", y="Ride length")
+```
+
+Plot 7 shows that casuals spend more time riding bikes than members.
+
+```{r plot_8: show the min, Q1, mean, Q3, and max ride lengths among the members and casuals for each day of the week}
+outlier_removed_tripdata %>%
+  ggplot(mapping = aes(x=day_of_week, y=ride_length, fill=member_casual)) +
+  geom_boxplot() +
+  labs(title="Summary of ride length for each day of the week", x="Day of the week", y="Ride length") +
+  facet_wrap(~member_casual)
+```
+
+Plot 8 shows that ride length for casuals peak on the weekends and decrease as the week goes on. The ride length for members peak on the weekends as well but stay consistent throughout the week.
+
+### Guiding Questions
+
+* How should you organize your data to perform analysis on it?
+  + I would merge all my csv files into a data frame and clean it by removing duplicates, null values, and outliers. Then I would create columns with data that would be useful for my analysis.
+  
+* Has your data been properly formatted?
+  + Yes, the data frame has columns with their correct data types.
+  
+* What surprises did you discover in the data?
+  + The most surprising thing in the data was that members spent less time riding bikes than casuals.
+  
+* What trends or relationships did you find in the data?
+  + Casuals and members have the same peak for the hour they start riding their bikes.
+  + Casuals spent more time riding during the weekend compared to the weekdays.
+  + Members were the opposite and spent more time riding during the weekdays.
+  + The amount of casuals and members riding slowly increases from January to May and peaks from June to August and slowly decreases from September to December.
+  + The classic bike is most used by both casuals and members and the docked bikes are rarely used/not at all.
+  
+* How will these insights help answer your business questions?
+  + These insights help find casual preferences for riding bikes and areas that can be changed to encourage casuals to become members.
+
+## **Share**
+
+### Summary of my insights
+
+* There are currently 60% more members compared to casuals.
+* The number of members and casuals both increase slowly for the start of their rides as the hour approaches the peak at 5:00pm and then starts to decrease. Both groups have a similar graph except for 7:00am to 8:00am where members have a slight increase.
+* The number of casuals who are riding increases as the week goes on and peaks on Saturdays whereas the number of members who are riding starts out high and decreases as the week goes on.
+* Both members and casuals prefer to ride during the middle of the month from June to August where their peak happens.
+* The starting hours of member and casual rides are the same on weekdays where it peaks at 5:00pm but are more consistent throughout the day on weekends where there is no peak.
+* The classic bike is the most popular for both the members and casuals, the electric bike is not as popular among the members and slightly less popular among the casual compared to the classic, and the docked biked is the least popular with a few uses by the casuals and none at all by the members.
+* Casuals have more riding time than members.
+* Casuals spend the most time riding on weekends and decrease as the week goes on. Members also spend the most time riding on weekends but are consistent throughout the week.
+
+### Guiding Questions
+
+* Were you able to answer the question of how annual members and casual riders use Cyclistic bikes differently?
+  + Yes, the data showed many differences between annual members and casual riders.
+  
+* What story does your data tell?
+  + The main story the data tells is that members have different riding habits compared to casuals with some similarities. The number of members and casuals both peak at 5:00pm for the hour when they start riding their bikes; however, casuals prefer riding on weekends and members prefer riding on weekdays. 
+  
+* How do your findings relate to your original question?
+  + My findings show the similarities and differences between how annual members and casual riders use Cyclistic bikes.
+  
+* Who is your audience? What is the best way to communicate with them?
+  + My audience is Lily Moreno and the Cyclistic marketing analytics team. The best way to communicate with them is by creating a slideshow to present my findings.
+  
+* Can data visualization help you share your findings?
+  + Yes, data visualization will help me show the data to my audience.
+  
+* Is your presentation accessible to your audience?
+  + Yes, the plots created on RStudio have vibrant colors and corresponding labels.
+
+## **Act**
+
+### Guiding Questions
+
+* What is your final conclusion based on your analysis?
+  + Both members and casuals have different riding habits.
+  
+* How could your team and business apply your insights?
+  + The team can focus on using my insights to implement a marketing campaign to convince casuals to become annual members during the peak months, June to August.
+  
+* What next steps would you or your stakeholders take based on your findings?
+  + The stakeholders should get the marketing team to develop a successful marketing campaign that will attract casuals.
+  
+* Is there additional data you could use to expand on your findings?
+  + More information on members and casuals
+  + Weather
+
+### Top 3 recommendations
+
+* Launch a marketing campaign from May to October, as the number of casual riders is much higher.
+* Offer weekend-only memberships since casuals spend more time riding during the weekends than the weekdays.
+* Provide benefits such as discounts based on the ride length of riders with memberships to incentive casuals to become a member.
