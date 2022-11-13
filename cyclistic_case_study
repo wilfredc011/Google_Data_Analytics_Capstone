@@ -60,7 +60,7 @@ You are a junior data analyst working in the marketing analyst team at Cyclistic
 
 I will be using R to prepare, verify, and clean the data for analysis. First, I load several libraries to help with the process.
 
-```{r loading libraries}
+```{r load libraries}
 library(tidyverse)  # easily install and load the tidyverse
 library(lubridate)  # make dealing with dates a little easier
 library(janitor)    # simple tools for examining and cleaning dirty data
@@ -69,6 +69,8 @@ library(knitr)      # engine for dynamic report generation
 library(data.table) # extension of data.frame
 library(readr)      # read rectangular text data more easily
 ```
+
+Import the 12 data sets and read as csv files.
 
 ```{r import csv files}
 tripdata_01 <- read.csv("202110-divvy-tripdata.csv")
@@ -85,6 +87,8 @@ tripdata_11 <- read.csv("202208-divvy-tripdata.csv")
 tripdata_12 <- read.csv("202209-divvy-publictripdata.csv")
 ```
 
+Compare column names to make sure they are consistent.
+
 ```{r examine column names}
 colnames(tripdata_01)
 colnames(tripdata_02)
@@ -100,22 +104,32 @@ colnames(tripdata_11)
 colnames(tripdata_12)
 ```
 
+Combine all 12 data sets into a single data frame.
+
 ```{r concatenate all csv files into a single data frame}
 past_12_months_tripdata <- 
   bind_rows(tripdata_01, tripdata_02, tripdata_03, tripdata_04, tripdata_05, tripdata_06, tripdata_07, tripdata_08, tripdata_09, tripdata_10, tripdata_11, tripdata_12)
 ```
 
-```{r save combined data frame into a csv file}
+Save the data frame as a csv file.
+
+```{r save data frame as a csv file}
 write.csv(past_12_months_tripdata, file="Cyclistic_tripdata.csv")
 ```
+
+Import the saved csv file.
 
 ```{r import saved csv file}
 all_12_tripdata <- read.csv("Cyclistic_tripdata.csv")
 ```
 
+Preview the first 6 rows of the data frame.
+
 ```{r preview first 6 rows of the data frame}
 head(all_12_tripdata)
 ```
+
+Remove any duplicated rows from the data frame.
 
 ```{r remove duplicate rows}
 no_duplicate_tripdata <-
@@ -123,17 +137,23 @@ no_duplicate_tripdata <-
 print(paste("Removed", nrow(all_12_tripdata) - nrow(no_duplicate_tripdata), "duplicated rows"))
 ```
 
+Remove any row that consists of a NULL value from the data frame.
+
 ```{r remove rows with NULL values}
 null_removed_tripdata <-
   na.omit(no_duplicate_tripdata)
 print(paste("Removed", nrow(no_duplicate_tripdata) - nrow(null_removed_tripdata), "NULL rows"))
 ```
 
+Create a column for the ride length in minutes.
+
 ```{r create a new column for the ride length in minutes}
 cleaned_tripdata <-
   null_removed_tripdata %>%
   mutate(ride_length = as.numeric(difftime(null_removed_tripdata$ended_at, null_removed_tripdata$started_at, units = "mins")))
 ```
+
+Create a column for the day of the week, month, year, and starting hour that each ride started.
 
 ```{r create a new column for the date, day of the week, month, year, and starting hour that each ride started}
 cleaned_tripdata$day_of_week <- 
@@ -146,15 +166,21 @@ cleaned_tripdata$start_hourr <-
   format(as.POSIXct(cleaned_tripdata$started_at, format = "%Y-%m-%d %H:%M:%S"), "%H")
 ```
 
+Preivew the structure of the new columns and make sure it is correct.
+
 ```{r preview the structure of the new columns}
-head(cleaned_tripdata)
+str(cleaned_tripdata)
 ```
 
-```{r convert and check numeric values}
+Convert variables to numeric values.
+
+```{r convert variables to numeric values}
 cleaned_tripdata$start_hour <-
   as.numeric(cleaned_tripdata$start_hour)
 is.numeric(cleaned_tripdata$start_hour)
 ```
+
+Remove any row that consists of negative values in the ride_length column.
 
 ```{r remove negative values from ride length}
 cleaned_tripdata_1 <-
@@ -181,22 +207,23 @@ print(paste("Removed", nrow(cleaned_tripdata) - nrow(cleaned_tripdata_1), "rows"
 
 ## **Analyze**
 
-```{r renaming data frame}
-tripdata <-
-  cleaned_tripdata_1
-```
+Preview a summary of the data frame.
 
 ```{r preview a summary of the data frame}
-summary(tripdata)
+summary(cleaned_tripdata_1)
 ```
+
+Retrieve the ventiles of the ride lengths to see if there are any outliers.
 
 ```{r divide ride_length into 20 groups of equal sizes to find where the outliers exist}
 ventiles_tripdata <-
-  quantile(tripdata$ride_length, seq(0, 1, 1/20))
+  quantile(cleaned_tripdata_1$ride_length, seq(0, 1, 1/20))
 ventiles_tripdata
 ```
 
-```{r remove data less than 5th percentile and greater than 95th percentile}
+Remove the data that is less than the 5th percentile and greater than the 95th percentile to get rid of the outliers.
+
+```{r remove data < 5th percentile and > 95th percentile}
 outlier_removed_tripdata <-
   tripdata %>%
   filter(ride_length > quantile(tripdata$ride_length, 0.05)) %>%
@@ -204,15 +231,22 @@ outlier_removed_tripdata <-
 print(paste("Removed", nrow(tripdata) - nrow(outlier_removed_tripdata), "outliers"))
 ```
 
+Rename the data frame to make it easier for plotting graphs.
+
+```{r renaming data frame}
+tripdata <-
+  outlier_removed_tripdata
+```
+
 ```{r plot_1: show the number of casuals and members}
-outlier_removed_tripdata %>%
+tripdata %>%
   ggplot(mapping = aes(x=member_casual, fill=member_casual)) +
   geom_bar() +
   labs(title="Number of casuals vs members", x="casuals vs members", y="Number of people") +
   geom_text(aes(label=..count..), stat="count", vjust=0)
 ```
 
-Plot 1 tells us the amount of members and casuals there are.
+Plot 1 tells us the number of members and casuals there are.
 
 ```{r plot_2: show the number of casuals and members that start at each hour of the day}
 outlier_removed_tripdata %>%
@@ -223,8 +257,8 @@ outlier_removed_tripdata %>%
 
 Plot 2 shows us that the peak number of members and casuals start their ride at 5:00pm.
 
-```{r summarize the amount of members and casuals that are in each hour}
-outlier_removed_tripdata %>%
+```{r summarize the number of members and casuals that are in each hour}
+tripdata %>%
   group_by(start_hour) %>%
   summarize("total" = sum(member_casual == "member" | member_casual == "casual"), 
             "members" = sum(member_casual == "member"),
@@ -232,23 +266,25 @@ outlier_removed_tripdata %>%
             "difference_in_people" = members - casuals)
 ```
 
+This data frame summarizes the number of members and casuals that are in each hour.
+
 ```{r used to categorize and store the day of the week in chronological order}
-outlier_removed_tripdata$day_of_week <-
-  factor(outlier_removed_tripdata$day_of_week, c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+tripdata$day_of_week <-
+  factor(tripdata$day_of_week, c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
 ```
 
 ```{r plot_3: show the number of casuals and members that ride during each day of the week}
-outlier_removed_tripdata %>%
+tripdata %>%
   ggplot(mapping = aes(x=day_of_week, fill=member_casual)) +
   geom_bar() +
   labs(title="Number of casuals vs members during each day of the week", x="Day of the week", y="Number of people") +
   facet_wrap(~member_casual)
 ```
 
-Plot 3 indicates that members favor riding on Tuesdays to Thursdays and casuals favor riding on Saturdays. The amount of casuals and members riding on Saturdays are very close.
+Plot 3 indicates that members favor riding on Tuesdays to Thursdays and casuals favor riding on Saturdays. The number of casuals and members riding on Saturdays are very close.
 
-```{r summarize the amount of members and casuals that are in each day of the week}
-outlier_removed_tripdata %>%
+```{r summarize the number of members and casuals that are in each day of the week}
+tripdata %>%
   group_by(day_of_week) %>%
   summarize("total" = sum(member_casual == "member" | member_casual == "casual"), 
             "members" = sum(member_casual == "member"),
@@ -256,8 +292,10 @@ outlier_removed_tripdata %>%
             "difference_in_people" = members - casuals)
 ```
 
+This data frame summarizes the number of members and casuals that are in each day of the week.
+
 ```{r plot_4: show the number of casuals vs members at the start of their ride for each day of the week}
-outlier_removed_tripdata %>%
+tripdata %>%
   ggplot(mapping = aes(x=start_hour, fill=member_casual)) +
   geom_bar() +
   labs(title="Number of casuals vs members at the start of their ride for each day of the week", x="Hour of the Day", y="Number of people") +
@@ -267,12 +305,12 @@ outlier_removed_tripdata %>%
 Plot 4 shows us that on weekdays, most casuals and members start their ride around 5:00pm. On weekends, there is more consistency from 10:00am to 6:00pm.
 
 ```{r used to categorize and store the months in chronological order}
-outlier_removed_tripdata$month <-
-  factor(outlier_removed_tripdata$month, c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"))
+tripdata$month <-
+  factor(tripdata$month, c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"))
 ```
 
 ```{r plot_5: show the number of casuals and members that ride during each month}
-outlier_removed_tripdata %>%
+tripdata %>%
   ggplot(mapping = aes(x=month, fill=member_casual)) +
   geom_bar() +
   labs(title="Number of casuals vs members during each month", x="Months", y="Number of people") +
@@ -280,10 +318,10 @@ outlier_removed_tripdata %>%
   theme(axis.text.x = element_text(angle = 90))
 ```
 
-Plot 5 shows us that both members and casuals heavily favor riding bikes in the middle of the year as opposed to the beginning or end. The amount of members peak in August and the amount of casuals peak in July.
+Plot 5 shows us that both members and casuals heavily favor riding bikes in the middle of the year as opposed to the beginning or end. The number of members peak in August and the number of casuals peak in July.
 
-```{r summarize the amount of members and casuals that are in each month}
-outlier_removed_tripdata %>%
+```{r summarize the number of members and casuals that are in each month}
+tripdata %>%
   group_by(month) %>%
   summarize("total" = sum(member_casual == "member" | member_casual == "casual"), 
             "members" = sum(member_casual == "member"),
@@ -291,8 +329,10 @@ outlier_removed_tripdata %>%
             "difference_in_people" = members - casuals)
 ```
 
+This data frame summarizes the number of members and casuals that are in each month.
+
 ```{r plot_6: see which bike is most popular between casuals and members}
-outlier_removed_tripdata %>%
+tripdata %>%
   ggplot(mapping = aes(x=rideable_type, fill=member_casual)) +
   geom_bar(position="dodge") +
   labs(title="Number of each bike used by casuals vs members", x="Type of bike", y="Number of bikes") +
@@ -302,7 +342,7 @@ outlier_removed_tripdata %>%
 Plot 6 reveals that the classic bike is most popular among the members and casuals. The docked bike is the least popular and only used by a few casuals. 
 
 ```{r plot_7: show the min, Q1, mean, Q3, and max ride lengths among members and casuals}
-outlier_removed_tripdata %>%
+tripdata %>%
   ggplot(mapping = aes(x=member_casual, y=ride_length, fill=member_casual)) +
   geom_boxplot() +
   labs(title="Summary of ride length for casuals vs members", x="casuals vs members", y="Ride length")
@@ -311,7 +351,7 @@ outlier_removed_tripdata %>%
 Plot 7 shows that casuals spend more time riding bikes than members.
 
 ```{r plot_8: show the min, Q1, mean, Q3, and max ride lengths among the members and casuals for each day of the week}
-outlier_removed_tripdata %>%
+tripdata %>%
   ggplot(mapping = aes(x=day_of_week, y=ride_length, fill=member_casual)) +
   geom_boxplot() +
   labs(title="Summary of ride length for each day of the week", x="Day of the week", y="Ride length") +
